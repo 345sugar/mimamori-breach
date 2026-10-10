@@ -1,7 +1,8 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import unittest
-from unittest.mock import Mock
+import queue
+from unittest.mock import Mock, patch
 
 from mimamori_breach.app import App, DAY, demo_breaches, seconds_until_due
 from mimamori_breach.model import apply_success
@@ -22,7 +23,7 @@ class ControllerTests(unittest.TestCase):
     def setUp(self):
         self.app = App.__new__(App)
         self.app.payload = {"config": {"email": "test@example.test", "api_key": "0" * 32,
-                            "enabled": True, "consent": True}, "state": {}}
+                            "enabled": True, "consent": True, "billing_acknowledged": True}, "state": {}}
         self.app.demo = False
         self.app.store = Mock()
         self.app.status = Mock()
@@ -85,6 +86,73 @@ class ControllerTests(unittest.TestCase):
         del state["items"]["ExampleGarden"]["first_seen"]
         with self.assertRaises(ValueError):
             App._validate_payload(self.app.payload)
+
+    def test_manual_check_without_cost_acknowledgement_never_starts_network(self):
+        self.app.busy = False
+        self.app.settings = Mock()
+        for value in (None, False, 1, "true"):
+            with self.subTest(value=value), patch("mimamori_breach.app.HibpClient") as client, patch("mimamori_breach.app.threading.Thread") as worker:
+                if value is None:
+                    self.app.payload["config"].pop("billing_acknowledged", None)
+                else:
+                    self.app.payload["config"]["billing_acknowledged"] = value
+                self.app.settings.reset_mock()
+                self.app.check()
+                self.app.settings.assert_called_once()
+                worker.assert_not_called()
+                client.assert_not_called()
+                self.assertEqual(self.app.next_check, float("inf"))
+
+    def test_initial_empty_settings_never_start_network(self):
+        self.app.busy = False
+        self.app.payload["config"] = {}
+        self.app.settings = Mock()
+        with patch("mimamori_breach.app.HibpClient") as client, patch("mimamori_breach.app.threading.Thread") as worker:
+            self.app.check()
+            client.assert_not_called()
+            worker.assert_not_called()
+            self.app.settings.assert_called_once()
+
+    def test_opted_in_check_uses_only_the_entered_key(self):
+        self.app.busy = False
+        self.app.events = queue.Queue()
+        for key in ("1" * 32, "2" * 32):
+            with self.subTest(key=key), patch("mimamori_breach.app.HibpClient") as client, patch("mimamori_breach.app.threading.Thread") as worker:
+                self.app.busy = False
+                self.app.payload["config"]["api_key"] = key
+                client.return_value.breaches.return_value = []
+                self.app.check()
+                worker.call_args.kwargs["target"]()
+                client.assert_called_once_with(key)
+                client.return_value.breaches.assert_called_once_with("test@example.test")
+
+    def test_demo_never_uses_a_stored_key(self):
+        self.app.busy = False
+        self.app.demo = True
+        with patch("mimamori_breach.app.HibpClient") as client, patch("mimamori_breach.app.threading.Thread") as worker:
+            self.app.check()
+            client.assert_not_called()
+            worker.assert_not_called()
+            self.app.store.save.assert_not_called()
+
+    def test_startup_preserves_legacy_settings_but_does_not_schedule_api(self):
+        for acknowledged in (None, False):
+            payload = deepcopy(self.app.payload)
+            if acknowledged is None:
+                del payload["config"]["billing_acknowledged"]
+            else:
+                payload["config"]["billing_acknowledged"] = acknowledged
+            store = Mock()
+            store.load.return_value = payload
+            with self.subTest(acknowledged=acknowledged), patch("mimamori_breach.app.tk.StringVar"), patch.object(App, "_layout"), patch.object(App, "_refresh"), patch("mimamori_breach.app.HibpClient") as client:
+                app = App(Mock(), tray=False, store=store)
+                self.assertFalse(app.storage_failed)
+                self.assertEqual(app.payload, payload)
+                self.assertEqual(app.next_check, float("inf"))
+                app.next_check = 0  # Even a stale due timer cannot bypass the gate.
+                app._pump()
+                client.assert_not_called()
+                store.save.assert_not_called()
 
 
 if __name__ == "__main__":

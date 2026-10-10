@@ -31,9 +31,15 @@ The demo makes no API requests and does not read or write real settings. Start w
 .\.venv\Scripts\python.exe -m mimamori_breach
 ```
 
-Normal email lookups require your own [paid HIBP API key](https://haveibeenpwned.com/API/Key). Enter the email and key in Settings, accept the disclosure that the full email address is sent to HIBP, and enable monitoring. No automatic lookup occurs until configured and enabled with consent. This version uses direct email lookup, not email hash ranges. See the [HIBP API documentation](https://haveibeenpwned.com/API/v3).
+Normal email lookups require your own [paid HIBP API key](https://haveibeenpwned.com/API/Key). Enter the email and key in Settings, accept the disclosure that the full email address is sent to HIBP, confirm that you use your own API subscription and bear its costs, and enable monitoring. Both manual and automatic lookups require the key, disclosure consent and cost confirmation. Existing saved settings also require the new cost confirmation before lookups resume. Automatic checks additionally require monitoring to be enabled. This version uses direct email lookup, not email hash ranges. See the [HIBP API documentation](https://haveibeenpwned.com/API/v3).
 
 Closing the window keeps the app in the tray when a tray icon is available. Use the explicit Quit command to stop it. Disabling monitoring keeps your history. The app does not register itself to start when you sign in to Windows.
+
+### Who pays for the API?
+
+Each user brings their own API key (BYOK), and their device connects directly to HIBP. No maintainer key is bundled or shared, and there is no maintainer-operated paid API relay. Other users' API usage therefore does not accrue charges to the maintainer through this app.
+
+The user who configures a key is responsible for their own paid HIBP subscription. The app does not automatically purchase or subscribe to anything. **The free demo needs no key, network requests or subscription, and generates no billable API usage from this app.** Stopping or deleting the app does not cancel a separate HIBP subscription.
 
 ## Scope and privacy
 

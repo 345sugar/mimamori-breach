@@ -2,7 +2,7 @@
 
 ## 送信する情報
 
-メールアドレスと API キーの設定・同意後に、手動確認を行うか自動監視を有効にすると、アプリは登録された 1 件のメールアドレスを HIBP の照合 API に送ります。
+メールアドレスと自分の API キーを設定し、送信への同意と、自分の API 契約・費用負担の確認を行った後に、手動確認を行うか自動監視を有効にすると、アプリは登録された 1 件のメールアドレスを HIBP の照合 API に送ります。費用負担の確認がない従来の保存設定では、手動・自動ともに照合を停止します。
 
 | 項目 | 送信先・用途 |
 | --- | --- |
@@ -15,9 +15,15 @@
 
 本プロジェクト独自のクラウドへのアップロード、利用状況の解析、広告用トラッキングはありません。画面の外部リンクを開く場合は、通常のブラウザーでリンク先へ接続します。依存パッケージのインストールや GitHub からのダウンロードは、アプリの照合通信とは別です。
 
+## API キーと費用
+
+利用者本人のキーを使い（BYOK）、端末から HIBP へ直接照合します。作者のキーの同梱・共有や、作者が運営する有料 API の中継はなく、他の利用者の API 利用料金が作者へ集まる構成ではありません。実際の照合には利用者自身の HIBP 有料契約が必要で、その費用は利用者が負担します。アプリが自動で契約・購入することはありません。
+
+キーを設定せず無料デモを使う場合、通信・契約は不要で、このアプリから課金対象の API 利用は発生しません。アプリの停止・削除は、別途結んだ HIBP の契約の解約にはなりません。
+
 ## 端末に残る情報
 
-メールアドレス、API キー、同意・監視設定、取得した漏洩記録、確認日時、対応済みの状態を、次のファイルにまとめて保存します。
+メールアドレス、API キー、送信への同意・費用負担の確認・監視設定、取得した漏洩記録、確認日時、対応済みの状態を、次のファイルにまとめて保存します。
 
 ```text
 %LOCALAPPDATA%\MimamoriBreach\state.bin
@@ -46,4 +52,6 @@
 
 ## English summary
 
-After setup and consent, manual checks and enabled automatic monitoring send the full configured email address in an HTTPS URL and your API key in a header directly to HIBP. The app uses no project-operated analytics or cloud backend. Settings and history are encrypted with current-user Windows DPAPI in `%LOCALAPPDATA%\MimamoriBreach\state.bin`; this does not protect them from malware running as your Windows user. Quit the app before deleting that file to reset all local data. The offline demo uses synthetic in-memory state only. No passwords, browser credentials or browsing history are collected.
+After setup, disclosure consent and confirmation that you use your own API subscription and bear its costs, manual checks and enabled automatic monitoring send the full configured email address in an HTTPS URL and your API key in a header directly to HIBP. Saved settings without the cost confirmation cannot make either kind of lookup. Each user brings their own key (BYOK); no maintainer key is bundled or shared, and there is no maintainer-operated paid API relay. Other users' API usage does not accrue charges to the maintainer through this app. Users are responsible for their own HIBP subscription costs; the app makes no purchases or subscriptions. Stopping or deleting it does not cancel a separate HIBP subscription.
+
+The app uses no project-operated analytics or cloud backend. Settings, consent, cost confirmation and history are encrypted with current-user Windows DPAPI in `%LOCALAPPDATA%\MimamoriBreach\state.bin`; this does not protect them from malware running as your Windows user. Quit the app before deleting that file to reset all local data. The free offline demo uses synthetic in-memory state only, requires no key or subscription and makes no billable API requests. No passwords, browser credentials or browsing history are collected.

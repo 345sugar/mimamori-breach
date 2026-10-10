@@ -13,10 +13,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
+from . import __version__
+
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 REQUEST_TIMEOUT = 15
-USER_AGENT = "MimamoriBreach/0.1.0"
+USER_AGENT = "MimamoriBreach/" + __version__
 _BASE_URL = "https://haveibeenpwned.com/api/v3/breachedAccount/"
 _ERROR_MESSAGES = {
     "auth": "The breach service did not accept the API credentials.",

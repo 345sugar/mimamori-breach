@@ -82,7 +82,9 @@ class App:
                 if loaded:
                     self._validate_payload(loaded)
                     self.payload = loaded
-                if self.payload["config"].get("enabled"):
+                if self.payload["config"] and self.payload["config"].get("billing_acknowledged") is not True:
+                    self.status.set("通信は停止中です。見守り設定で、ご自身のAPI契約と費用負担を確認してください。")
+                elif self.payload["config"].get("enabled"):
                     self.next_check = time.time() + seconds_until_due(self.payload["state"].get("last_success"))
                     self.status.set("起動中に1日1回確認します。画面を閉じてもトレイで動作します。")
             except (StorageError, ValueError, TypeError, KeyError):
@@ -107,6 +109,8 @@ class App:
             if not re.fullmatch(r"[0-9a-fA-F]{32}", config["api_key"]):
                 raise ValueError
             if type(config.get("enabled")) is not bool or config.get("consent") is not True:
+                raise ValueError
+            if "billing_acknowledged" in config and type(config["billing_acknowledged"]) is not bool:
                 raise ValueError
         if state:
             if state.get("account") != config.get("email") or not isinstance(state.get("items"), dict):
@@ -201,6 +205,8 @@ class App:
                 self.headline.set("確認しています")
             elif self.last_error:
                 self.headline.set("今回の確認はできませんでした")
+            elif self.payload["config"] and self.payload["config"].get("billing_acknowledged") is not True:
+                self.headline.set("APIの利用は停止中です")
             elif not self.payload["config"].get("enabled"):
                 self.headline.set("見守りは停止中です")
             elif count:
@@ -267,14 +273,20 @@ class App:
         email = tk.StringVar(value=config.get("email", ""))
         key = tk.StringVar(value=config.get("api_key", ""))
         consent = tk.BooleanVar(value=config.get("consent", False))
+        billing = tk.BooleanVar(value=config.get("billing_acknowledged", False))
+        # A replacement key may belong to a different paid account.
+        key.trace_add("write", lambda *_: billing.set(False))
         enabled = tk.BooleanVar(value=config.get("enabled", False))
         ttk.Label(frame, text="自分のメールアドレス", font=("Yu Gothic UI", 11, "bold")).pack(anchor="w")
         ttk.Entry(frame, textvariable=email, width=58).pack(fill="x", pady=(6, 14))
-        ttk.Label(frame, text="HIBP APIキー（有料契約が必要）").pack(anchor="w")
+        ttk.Label(frame, text="自分で契約したHIBP APIキー（有料・任意）").pack(anchor="w")
         ttk.Entry(frame, textvariable=key, show="●", width=58).pack(fill="x", pady=(6, 12))
+        ttk.Label(frame, text="APIの費用は、入力したキーの契約者が負担します。\n作者の共用キーはありません。アプリ内で購入・課金登録は行いません。\n費用をかけずに試す場合は、Demo.cmd を利用できます。",
+                  justify="left").pack(anchor="w", pady=(0, 12))
         ttk.Label(frame, text="登録したメールアドレス全体とAPIキーを、照合のために\nHave I Been PwnedへHTTPSで送信します。\n設定と履歴は、このWindowsユーザー用に暗号化して保存します。",
                   justify="left").pack(anchor="w", pady=(0, 12))
         ttk.Checkbutton(frame, text="自分のアドレスであり、上記の送信・保存に同意する", variable=consent).pack(anchor="w")
+        ttk.Checkbutton(frame, text="自分の契約のキーであり、API費用は自分が負担すると理解した", variable=billing).pack(anchor="w", pady=(8, 0))
         ttk.Checkbutton(frame, text="起動中に1日1回、自動で確認する", variable=enabled).pack(anchor="w", pady=(8, 12))
         ttk.Button(frame, text="HIBPのAPI契約案内", command=lambda: webbrowser.open("https://haveibeenpwned.com/Subscription")).pack(anchor="w")
 
@@ -285,18 +297,22 @@ class App:
                 if not re.fullmatch(r"[0-9a-fA-F]{32}", api_key) or not consent.get():
                     raise ValueError
             except ValueError:
-                messagebox.showerror("設定を確認してください", "メールアドレス、32桁のAPIキー、同意のチェックが必要です。", parent=dialog)
+                messagebox.showerror("設定を確認してください", "メールアドレス、32桁のAPIキー、送信・保存の同意が必要です。", parent=dialog)
                 return
             state = self.payload["state"] if config.get("email") == address else {}
             updated = {"config": {"email": address, "api_key": api_key,
-                       "consent": True, "enabled": enabled.get()}, "state": state}
+                       "consent": True, "billing_acknowledged": billing.get(),
+                       "enabled": enabled.get() and billing.get()}, "state": state}
             self.generation += 1  # Discard in-flight results for earlier settings.
             if self._persist(updated):
                 self.last_error = False
                 if config.get("api_key") != api_key:
                     self.retry_not_before = 0
-                self.next_check = time.time() if enabled.get() else float("inf")
-                self.status.set("設定を保存しました。" if enabled.get() else "自動確認を停止しました。手動で確認できます。")
+                self.next_check = time.time() if updated["config"]["enabled"] else float("inf")
+                if not billing.get():
+                    self.status.set("API通信を停止しました。再開には、ご自身の契約と費用負担の確認が必要です。")
+                else:
+                    self.status.set("設定を保存しました。" if updated["config"]["enabled"] else "自動確認を停止しました。手動で確認できます。")
                 key.set("")
                 dialog.destroy()
             self._refresh()
@@ -311,7 +327,9 @@ class App:
             self.status.set("デモの確認が完了しました。実際の通信は行っていません。")
             return
         config = self.payload["config"]
-        if not config.get("consent"):
+        if config.get("consent") is not True or config.get("billing_acknowledged") is not True:
+            self.next_check = float("inf")
+            self.status.set("API通信には、ご自身のキーと費用負担の確認が必要です。")
             self.settings()
             return
         if time.time() < getattr(self, "retry_not_before", 0):
@@ -393,7 +411,9 @@ class App:
             pass
         if self.closed:
             return
-        if not self.demo and not self.busy and not self.storage_failed and time.time() >= self.next_check:
+        if (not self.demo and not self.busy and not self.storage_failed
+                and self.payload["config"].get("billing_acknowledged") is True
+                and time.time() >= self.next_check):
             self.check()
         self.root.after(250, self._pump)
 
