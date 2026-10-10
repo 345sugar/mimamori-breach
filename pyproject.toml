@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mimamori-breach"
+version = "0.1.0"
+description = "A Windows tray companion for known email breach alerts"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "345sugar"}]
+dependencies = ["pystray==0.19.5", "Pillow>=11.3,<13"]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.16,<7"]
+
+[project.gui-scripts]
+mimamori-breach = "mimamori_breach.app:main"
+
+[project.urls]
+Homepage = "https://github.com/345sugar/mimamori-breach"
+Issues = "https://github.com/345sugar/mimamori-breach/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

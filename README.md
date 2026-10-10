@@ -1,2 +1,79 @@
-# mimamori-breach
-A Windows tray companion for known email breach alerts, with encrypted local settings and an offline demo.
+# みまもり — Mimamori Breach
+
+**自分のメールアドレスに関する漏洩情報を、Windows の片隅で見守る。**
+
+Have I Been Pwned（HIBP）の情報を確認し、新しく見つかった記録を知らせる、個人向けの小さな常駐アプリです。画面では漏洩の記録と対応状況を確認できます。
+
+[English](README.en.md) · [プライバシー](PRIVACY.md) · [セキュリティ報告](SECURITY.md) · [開発への参加](CONTRIBUTING.md)
+
+## できること
+
+- 自分のメールアドレスを 1 件登録し、起動中・PC が起きている間に約 24 時間ごとに確認。
+- 手動確認と、前回の成功・通信エラーを区別した状態表示。
+- 漏洩の名称・発生日・情報の種類を表示し、記録ごとに「対応済み」を保存。
+- メールアドレスやサービス名を含めない通知。詳細はアプリを開いて確認。
+- メールアドレス、API キー、確認履歴を Windows のユーザーに紐づけて暗号化保存。
+- 通信も API キーも不要な、架空データだけのデモ。
+
+初回確認では、過去の漏洩記録も表示されます。「新しく見つかった」は、このアプリで初めて確認したという意味です。いま攻撃を受けたことや、現在のパスワードが盗まれたことを示すものではありません。
+
+## まずデモで試す
+
+Windows と Python 3.11 以上（tkinter を含む）が必要です。リポジトリを取得し、そのフォルダーで実行します。
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m mimamori_breach --demo
+```
+
+デモの記録はすべて架空です。実際のメールアドレスを送信せず、実設定を読み書きせず、デモ終了時に状態を破棄します。
+
+## 自分のメールを見守る
+
+```powershell
+.\.venv\Scripts\python.exe -m mimamori_breach
+```
+
+1. HIBP の [API 契約](https://haveibeenpwned.com/API/Key)から、自分の API キーを用意します。通常のメール照合には有料契約が必要です。
+2. アプリの「見守り設定」で、自分が管理するメールアドレスと API キーを入力します。
+3. **登録メールアドレス全体を HIBP に送信する**ことを確認して同意し、監視を有効にして保存します。
+4. 結果を確認します。通信・認証の失敗は「該当なし」と別に表示されます。
+
+初回は、設定・同意・有効化が揃うまで自動照合しません。ウィンドウを閉じると、トレイが利用できる場合は常駐を続けます。完全に止めるには、画面またはトレイメニューの「終了」を使ってください。監視を無効にすると定期確認は止まり、履歴は残ります。
+
+PC のスリープ中やアプリ終了中は確認できません。Windows ログイン時の自動起動は登録しません。
+
+### 通知が来たら
+
+記録の情報の種類と、対象サービスが出している案内を確認してください。サービスの公式アプリや自分のブックマークからアカウント設定を開き、必要に応じてパスワード変更・使い回しの解消・多要素認証を行います。「対応済み」は自分用の記録であり、サービスの設定や HIBP の情報を変更しません。
+
+## わかる範囲
+
+この初期版は、HIBP に収録されているメールアドレスの漏洩記録を確認します。未発見・未収録の漏洩や、公開 API の対象外となる機微性の高い記録・撤回された記録は検知できません。HIBP で未検証とされる記録も照合対象から除外します。漏洩からデータベースへの収録まで時間がかかることもあります。「該当なし」は安全の保証ではありません。[HIBP FAQ](https://haveibeenpwned.com/FAQs)・[API 仕様](https://haveibeenpwned.com/API/v3)
+
+ウイルス対策、侵入の遮断、リアルタイムの通信監視、パスワード自体の漏洩照合は実装していません。ブラウザーの保存パスワードや閲覧履歴も読み取りません。
+
+## データの扱い
+
+照合先は HIBP です。HTTPS リクエストの URL に登録メールアドレス全体、ヘッダーに API キーを含めます。メールの部分ハッシュ照合は、この初期版では使用しません。[API 仕様](https://haveibeenpwned.com/API/v3)
+
+ローカル保存先は `%LOCALAPPDATA%\MimamoriBreach\state.bin` です。Windows DPAPI で現在のユーザーに紐づけて暗号化します。同じ Windows ユーザー権限で動くマルウェアからの保護はできません。詳細と削除方法は [PRIVACY.md](PRIVACY.md) を参照してください。
+
+## Windows 配布物
+
+Windows のビルドは GitHub Actions の成果物として取得できます。ZIP を展開し、`MimamoriBreach` フォルダー内の `MimamoriBreach.exe` を起動します。隣のファイル・フォルダーも必要なので、EXE だけを移動しないでください。
+
+最初は同じフォルダーの `Demo.cmd` をダブルクリックすると、API キー不要・通信なしの架空データで試せます。
+
+現在は署名付きインストーラーではありません。実行ファイルを使う前に配布元とビルドを確認できます。ソースから起動する方法は上記のとおりです。
+
+自分で配布物をビルドする手順は [再ビルド手順](THIRD_PARTY_NOTICES.md#ソースの入手と変更版による再ビルド) を参照してください。PyInstaller の実行後、同じ Python 環境で `python scripts/collect_bundle_materials.py` を実行し、説明書・ライセンス・pystray の対応ソースも同梱します。
+
+## 開発とライセンス
+
+初期開発版です。バグの報告や改善案は [Issues](https://github.com/345sugar/mimamori-breach/issues) へ。実メールアドレス、API キー、個人の漏洩履歴を貼らず、架空データで説明してください。
+
+メンテナー: [345sugar](https://github.com/345sugar)。本プロジェクトは AI による実装支援を用いています。独立したセキュリティ監査や認証を取得したとの主張はしていません。
+
+ソースコードは [MIT License](LICENSE) です。依存ソフトウェアのライセンスと再ビルド手順は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。漏洩情報の提供元は [Have I Been Pwned](https://haveibeenpwned.com/) で、そのデータには [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) が適用されます。本プロジェクトは HIBP の公式製品ではありません。
